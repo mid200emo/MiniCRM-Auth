@@ -1,23 +1,16 @@
 package main
 
 import (
+	"authService/pkg/logger"
 	"log"
-	"net/http"
 
-	"github.com/xydownik/MiniCRM/mini-crm/auth-service/internal/config"
-	"github.com/xydownik/MiniCRM/mini-crm/auth-service/internal/connections"
-	"github.com/xydownik/MiniCRM/mini-crm/auth-service/internal/deliveries"
+	"authService/internal/app/start"
 )
 
 func main() {
-	cfg := config.LoadConfig()
-
-	db, err := connections.ConnectDB(cfg)
-	if err != nil {
-		log.Fatalf("Ошибка подключения к БД: %v", err)
+	server := start.NewServer()
+	logger.Info("authService started on port 8081")
+	if err := server.Run(); err != nil {
+		log.Fatalf("Failed to run server: %v", err)
 	}
-
-	router := deliveries.SetupRouter(db, cfg)
-	log.Println("Auth Service запущен на порту", cfg.Port)
-	log.Fatal(http.ListenAndServe(":"+cfg.Port, router))
 }

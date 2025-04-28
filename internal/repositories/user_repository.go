@@ -1,26 +1,22 @@
 package repositories
 
 import (
-	"github.com/jmoiron/sqlx"
-	"github.com/xydownik/MiniCRM/mini-crm/auth-service/pkg/domain"
+	"authService/internal/app/connections"
+	"authService/internal/data"
 )
 
-// UserRepository управляет операциями с пользователями
-type UserRepository struct {
-	db *sqlx.DB
+type UserRepository struct{}
+
+func NewUserRepository() *UserRepository {
+	return &UserRepository{}
 }
 
-func NewUserRepository(db *sqlx.DB) *UserRepository {
-	return &UserRepository{db: db}
+func (r *UserRepository) Create(user *data.User) error {
+	return connections.DB.Create(user).Error
 }
 
-func (r *UserRepository) CreateUser(user *domain.User) error {
-	_, err := r.db.NamedExec("INSERT INTO users (email, password, created_at) VALUES (:email, :password, :created_at)", user)
-	return err
-}
-
-func (r *UserRepository) GetUserByEmail(email string) (*domain.User, error) {
-	var user domain.User
-	err := r.db.Get(&user, "SELECT * FROM users WHERE email = $1", email)
-	return &user, err
+func (r *UserRepository) FindByUsername(username string) (*data.User, error) {
+	var user data.User
+	result := connections.DB.Where("username = ?", username).First(&user)
+	return &user, result.Error
 }
