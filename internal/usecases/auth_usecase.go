@@ -23,3 +23,6 @@ func (uc *AuthUsecase) Login(username, password string) (accessToken, refreshTok
 func (uc *AuthUsecase) Refresh(refreshToken string) (accessToken, newRefreshToken string, err error) {
 	return uc.authService.RefreshTokens(refreshToken)
 }
+func (uc *AuthUsecase) JWTSecret() string {
+	return uc.authService.JWTSecret()
+}

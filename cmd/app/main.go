@@ -9,6 +9,7 @@ import (
 
 func main() {
 	server := start.NewServer()
+	logger.InitLogger()
 	logger.Info("authService started on port 8081")
 	if err := server.Run(); err != nil {
 		log.Fatalf("Failed to run server: %v", err)
