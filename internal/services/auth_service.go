@@ -59,21 +59,19 @@ func (s *AuthService) Register(username, password, role, email string) (string, 
 }
 
 func (s *AuthService) Login(username, password string) (string, string, error) {
-	// Используем кэшированное получение пользователя
+
 	user, err := s.getUserByUsername(username)
 	if err != nil {
 		logger.Error("user login failed", err)
 		return "", "", ErrUserNotFound
 	}
 
-	// Проверяем пароль через bcrypt
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
 		logger.Error("user login failed", err)
 		return "", "", ErrInvalidPassword
 	}
 	logger.Info("user login successful: " + username)
-	// Генерируем токены
 	return s.GenerateTokens(user.Username, user.Role)
 }
 
@@ -81,7 +79,6 @@ func (s *AuthService) getUserByUsername(username string) (*User, error) {
 	ctx := context.Background()
 	cacheKey := fmt.Sprintf("user_username_%s", username)
 
-	// 1. Пытаемся найти в кэше
 	cachedUserJSON, err := connections.RedisClient.Get(ctx, cacheKey).Result()
 	if err == nil {
 		var cachedUser User
@@ -89,8 +86,6 @@ func (s *AuthService) getUserByUsername(username string) (*User, error) {
 			return &cachedUser, nil
 		}
 	}
-
-	// 2. Если не нашли в кэше, идём в userService
 	url := fmt.Sprintf("http://user-service:8082/users/by-username/%s", username)
 	resp, err := http.Get(url)
 	if err != nil || resp.StatusCode != http.StatusOK {
@@ -103,7 +98,6 @@ func (s *AuthService) getUserByUsername(username string) (*User, error) {
 		return nil, fmt.Errorf("failed to decode userService response")
 	}
 
-	// 3. Кладём в Redis
 	userBytes, _ := json.Marshal(user)
 	_ = connections.RedisClient.Set(ctx, cacheKey, userBytes, 5*time.Minute).Err()
 
@@ -164,7 +158,6 @@ func (s *AuthService) RefreshTokens(refreshToken string) (string, string, error)
 		return "", "", errors.New("refresh token mismatch")
 	}
 
-	// Генерируем новые токены
 	accessToken, newRefreshToken, err := s.GenerateTokens(username, role)
 	if err != nil {
 		return "", "", err

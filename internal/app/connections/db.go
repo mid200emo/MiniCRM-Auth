@@ -2,7 +2,6 @@ package connections
 
 import (
 	"authService/internal/app/config"
-	"authService/internal/data"
 	"fmt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -16,12 +15,6 @@ func InitDB(cfg *config.Config) error {
 
 	var err error
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
-	if err != nil {
-		return err
-	}
-
-	// 🛠 Добавляем авто-миграцию таблицы User
-	err = DB.AutoMigrate(&data.User{})
 	if err != nil {
 		return err
 	}

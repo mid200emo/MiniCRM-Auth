@@ -12,7 +12,7 @@ func InitLogger() {
 		log.Fatalf("failed to open log file: %v", err)
 	}
 	log.SetOutput(logFile)
-	log.SetFlags(0) // убираем стандартный timestamp, так как он у тебя уже в Info/Error
+	log.SetFlags(0)
 }
 func Info(msg string) {
 	log.Printf("[INFO] %s: %s\n", time.Now().Format(time.RFC3339), msg)

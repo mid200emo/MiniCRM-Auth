@@ -4,11 +4,17 @@ import (
 	"authService/internal/services"
 )
 
+type IAuthUsecase interface {
+	Register(username, password, role, email string) (accessToken, refreshToken string, err error)
+	Login(username, password string) (accessToken, refreshToken string, err error)
+	Refresh(refreshToken string) (accessToken, newRefreshToken string, err error)
+	JWTSecret() string
+}
 type AuthUsecase struct {
 	authService *services.AuthService
 }
 
-func NewAuthUsecase(authService *services.AuthService) *AuthUsecase {
+func NewAuthUsecase(authService *services.AuthService) IAuthUsecase {
 	return &AuthUsecase{authService: authService}
 }
 
