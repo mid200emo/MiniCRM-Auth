@@ -9,6 +9,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"github.com/golang-jwt/jwt/v5"
 	"mime"
 	"net/http"
@@ -35,6 +36,30 @@ func withCORS(h http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+type claimsStd struct {
+	Username string `json:"username"`
+	jwt.RegisteredClaims
+}
+
+func parseAccessToken(raw string) (*claimsStd, error) {
+	token, err := jwt.ParseWithClaims(raw, &claimsStd{}, func(t *jwt.Token) (any, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+		return []byte(authUsecase.JWTSecret()), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !token.Valid {
+		return nil, errors.New("invalid token")
+	}
+	c, ok := token.Claims.(*claimsStd)
+	if !ok {
+		return nil, errors.New("invalid claims")
+	}
+	return c, nil
+}
 func RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/register", withCORS(Register))
 	mux.HandleFunc("/login", withCORS(Login))
@@ -129,42 +154,38 @@ func Login(w http.ResponseWriter, r *http.Request) {
 func Logout(w http.ResponseWriter, r *http.Request) {
 	enableCORS(w)
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	tokenString := r.Header.Get("Authorization")
-	if tokenString == "" {
-		http.Error(w, "Missing token", http.StatusUnauthorized)
+	authz := r.Header.Get("Authorization")
+	parts := strings.SplitN(authz, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		http.Error(w, "invalid authorization header", http.StatusUnauthorized)
 		return
 	}
 
-	parts := strings.Split(tokenString, " ")
-	if len(parts) != 2 || parts[0] != "Bearer" {
-		http.Error(w, "Invalid Authorization header", http.StatusUnauthorized)
+	c, err := parseAccessToken(parts[1])
+	if err != nil {
+		http.Error(w, "invalid token", http.StatusUnauthorized)
 		return
 	}
 
-	token, err := jwt.Parse(parts[1], func(token *jwt.Token) (interface{}, error) {
-		return []byte(authUsecase.JWTSecret()), nil
-	})
-
-	if err != nil || !token.Valid {
-		http.Error(w, "Invalid token", http.StatusUnauthorized)
-		return
+	var body struct {
+		RefreshToken string `json:"refresh_token"`
 	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
 
-	claims := token.Claims.(jwt.MapClaims)
-	username := claims["username"].(string)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 
-	ctx := context.Background()
-	if err := connections.RedisClient.Del(ctx, "refresh_"+username).Err(); err != nil {
-		http.Error(w, "Failed to logout", http.StatusInternalServerError)
+	if err := connections.RedisClient.Del(ctx, "refresh_"+c.Username).Err(); err != nil {
+		http.Error(w, "failed to logout", http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Logged out successfully"))
+	_, _ = w.Write([]byte("logged out"))
 }
 
 func Refresh(w http.ResponseWriter, r *http.Request) {
